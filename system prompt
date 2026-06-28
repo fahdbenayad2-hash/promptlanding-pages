@@ -1,0 +1,29 @@
+أنشئ لي صفحة هبوط كاملة بالمعطيات التالية:
+
+GAS_URL        = "https://script.google.com/macros/s/XXXXX/exec"
+PRODUCT_NAME   = "عباية صيفية فاخرة"
+PRODUCT_PRICE  = "3200"
+OLD_PRICE      = "4500"
+BRAND_NAME     = "Secret Femme"
+WHATSAPP_NUM   = "0555123456"
+PIXEL_ID       = "123456789012345"
+SIZE_GUIDE     = "none"
+MATERIAL       = "كريب مزدوج"
+NOTIFY_EMAIL   = "doudi@gmail.com"
+
+SIZE_DATA = [
+  { label: "S",  available: true,  urgent: false },
+  { label: "M",  available: true,  urgent: true  },
+  { label: "L",  available: true,  urgent: false },
+  { label: "XL", available: false, urgent: false }
+]
+
+COLOR_DATA = [
+  { name: "أسود",    hex: "#1A1A1A", available: true  },
+  { name: "بيج فاتح", hex: "#D4B896", available: true  },
+  { name: "كحلي",   hex: "#1C2B5A", available: true  }
+]
+
+H1          = "عباية صيفية فاخرة — خفيفة، أنيقة، لكل المناسبات"
+SUBHEADLINE = "خامة كريب مزدوج مريحة وغير شفافة، متوفرة بألوان راقية تناسب ذوقك"
+OG_IMAGE    = "https://example.com/abaya-og.jpg"
