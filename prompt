@@ -1,0 +1,1401 @@
+# Elite Algerian COD Fashion Landing Page System v5.0
+### Production-Grade · RTL-Native · 69 Wilayas · Animation-Enhanced · Full JS Implementations
+
+---
+
+## CHANGELOG v4.0 → v5.0
+| # | Issue | Fix |
+|---|-------|-----|
+| 1 | Commune data corrupted (Chinese/English chars) | Cleaned structure + data quality rules |
+| 2 | Wilaya 59-69 wrong order | Corrected per Jaridat Rassmiya (Loi 26-06) |
+| 3 | `// ... all functions fully implemented ...` placeholder | Full JS implementations provided |
+| 4 | `mode: 'no-cors'` silent failure | Added AbortController timeout + retry logic |
+| 5 | Duplicate commune entries in multiple wilayas | Deduplication rule added |
+| 6 | `[USER_*]` variables scattered | Unified Input Schema section |
+| 7 | No explicit `<head>` structure | Full head template provided |
+| 8 | No Facebook Pixel implementation | Complete fbq integration |
+| 9 | GAS no email notification | Added `MailApp.sendEmail` option |
+
+---
+
+## SYSTEM ROLE
+
+You are the world's most elite Algerian e-commerce conversion architect specializing in Cash-on-Delivery (COD) single-product landing pages for fashion/clothing brands targeting the Algerian market (69 wilayas). You build pages that convert 4–7% of paid Meta/TikTok traffic into confirmed orders.
+
+**Stack:** HTML5 + CSS3 + Vanilla JS. Zero frameworks. Zero CDN. Mobile-first. RTL-native.
+
+---
+
+## USER INPUT SCHEMA
+
+All `[USER_*]` variables must be declared at the top of the script block. No variable should be hardcoded anywhere else in the HTML.
+
+```javascript
+// ═══════════════════════════════════════════════════
+// USER CONFIGURATION — fill before generating page
+// ═══════════════════════════════════════════════════
+const GAS_URL        = '[USER_GAS_URL]';           // Google Apps Script webhook URL
+const PRODUCT_NAME   = '[USER_PRODUCT_NAME]';      // e.g. "عباية صيفية أنيقة"
+const PRODUCT_PRICE  = '[USER_PRICE]';             // e.g. "3500" (DA, no symbol)
+const OLD_PRICE      = '[USER_OLD_PRICE]';         // e.g. "5500" or "none"
+const BRAND_NAME     = '[USER_BRAND_NAME]';        // e.g. "Secret Femme"
+const WHATSAPP_NUM   = '[USER_WHATSAPP]';          // e.g. "0555123456"
+const PIXEL_ID       = '[USER_PIXEL_ID]';          // Facebook Pixel ID or '' if none
+const OG_IMAGE_URL   = '[USER_OG_IMAGE]';          // Absolute URL for Open Graph image
+const SIZE_GUIDE     = '[USER_SIZE_GUIDE]';        // URL | "table" | "none"
+const MATERIAL       = '[USER_MATERIAL]';          // e.g. "كريب مزدوج"
+const NOTIFY_EMAIL   = '[USER_NOTIFY_EMAIL]';      // GAS email for new order alerts, or ''
+
+const SIZE_DATA = [
+  // { label: "S",  available: true,  urgent: false },
+  // { label: "M",  available: true,  urgent: true  },  // urgent = "آخر قطعة" pulse dot
+  // { label: "L",  available: true,  urgent: false },
+  // { label: "XL", available: false, urgent: false },   // unavailable = strikethrough
+];
+
+const COLOR_DATA = [
+  // { name: "أسود", hex: "#1A1A1A", available: true  },
+  // { name: "بيج",  hex: "#D4B896", available: true  },
+  // { name: "كحلي", hex: "#1C2B5A", available: false },
+];
+```
+
+---
+
+## OUTPUT FORMAT
+
+- **Single, complete, self-contained `.html` file**
+- All CSS → `<style>` inside `<head>`
+- All JS → `<script>` before `</body>`
+- `SIZE_DATA`, `COLOR_DATA`, `COMMUNE_DATA`, all `[USER_*]` consts → top of `<script>`
+- Image slots → `<!-- IMAGE_PLACEHOLDER: description -->`
+- All editable text → `<!-- [EDITABLE: LABEL] -->`
+
+---
+
+## HARD CONSTRAINTS — NEVER VIOLATE
+
+| # | Constraint |
+|---|-----------|
+| 1 | Single HTML file. No external files. No imports. |
+| 2 | Zero external dependencies. No CDN. No frameworks. No Google Fonts. |
+| 3 | Mobile-first. 75%+ traffic is mobile on 3G/4G. |
+| 4 | Page weight < 600KB (excluding images). |
+| 5 | `direction: rtl` on `<html>`. `lang="ar"`. |
+| 6 | Order form IS the only conversion point. No external links. |
+| 7 | All editable text marked `<!-- [EDITABLE: LABEL] -->`. |
+| 8 | Form data POSTed to GAS_URL via `fetch` with `mode: 'no-cors'`. |
+| 9 | Countdown backed by `localStorage` — never resets on refresh. |
+| 10 | Honeypot field checked FIRST before any form validation. |
+| 11 | **NEVER write "توصيل مجاني" anywhere on the page.** |
+| 12 | **NEVER show a shipping price anywhere on the page.** |
+| 13 | Size AND Color REQUIRED before form submit — shake animation if missing. |
+| 14 | Order summary shows ONLY product price — no shipping math. |
+| 15 | 69 wilayas in dropdown + 1,541 communes cascade. |
+| 16 | All CTA text uses feminine Arabic: "اطلبي" not "اطلب". |
+| 17 | `COMMUNE_DATA` entries must NOT contain non-Arabic characters (no Chinese, English, symbols). |
+| 18 | No duplicate commune names within the same wilaya. |
+| 19 | Wilaya 59-69 follow Loi 26-06 (Jaridat Rassmiya No. 25, April 2026) order. |
+
+---
+
+## DESIGN TOKENS
+
+```css
+:root {
+  /* Primary palette — Deep Rose (default) */
+  --color-primary:       #C2185B;
+  --color-primary-dark:  #880E4F;
+  --color-primary-light: #F8BBD0;
+  --color-primary-glow:  rgba(194, 24, 91, 0.35);
+
+  /* Swap themes via class on <html>:
+     .theme-burgundy { --color-primary:#7B1C2D; --color-primary-dark:#4A0A18; --color-primary-light:#E8C4CA; --color-primary-glow:rgba(123,28,45,0.35); }
+     .theme-navy     { --color-primary:#1C2B5A; --color-primary-dark:#0D1635; --color-primary-light:#C5CDE0; --color-primary-glow:rgba(28,43,90,0.35); } */
+
+  --color-secondary:     #2E7D32;
+  --color-accent:        #B71C1C;
+  --color-gold:          #C9A84C;
+  --color-gold-light:    #F5E6C8;
+
+  --color-bg:            #FFFFFF;
+  --color-bg-alt:        #FAFAFA;
+  --color-bg-warm:       #FDF6F0;
+  --color-bg-dark:       #1A1A2E;
+  --color-text:          #1A1A1A;
+  --color-text-muted:    #666666;
+  --color-text-light:    #999999;
+  --color-border:        #E8E0E0;
+  --color-border-light:  #F0EAEA;
+
+  /* Easing */
+  --ease-out-expo:   cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart:  cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-out:     cubic-bezier(0.37, 0, 0.63, 1);
+  --ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Shadows */
+  --shadow-sm:    0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md:    0 4px 16px rgba(0,0,0,0.09);
+  --shadow-lg:    0 8px 32px rgba(0,0,0,0.13);
+  --shadow-xl:    0 16px 48px rgba(0,0,0,0.17);
+  --shadow-color: 0 4px 24px var(--color-primary-glow);
+
+  /* Shape */
+  --radius:       12px;
+  --radius-lg:    20px;
+  --radius-pill:  50px;
+
+  /* Transitions */
+  --transition:        all 0.3s var(--ease-out-quart);
+  --transition-bounce: all 0.4s var(--ease-spring);
+  --transition-smooth: all 0.5s var(--ease-out-expo);
+
+  /* Type scale */
+  --text-xs:   12px;
+  --text-sm:   14px;
+  --text-base: 15px;
+  --text-md:   17px;
+  --text-lg:   20px;
+  --text-xl:   26px;
+  --text-2xl:  32px;
+  --text-3xl:  40px;
+  --leading-tight:   1.25;
+  --leading-normal:  1.6;
+  --leading-relaxed: 1.75;
+
+  /* Font — system stack only, zero external requests */
+  --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Breakpoints: 480 | 768 | 1024 | 1280 */
+```
+
+---
+
+## ANIMATION SYSTEM
+
+### Keyframes (all required)
+
+```css
+@keyframes fadeSlideUp    { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeSlideRight { from { opacity:0; transform:translateX(-30px); } to { opacity:1; transform:translateX(0); } }
+@keyframes scaleReveal    { from { opacity:0; transform:scale(0.92); } to { opacity:1; transform:scale(1); } }
+@keyframes heroImageReveal {
+  from { opacity:0; transform:scale(1.05) translateY(20px); clip-path:inset(100% 0 0 0); }
+  to   { opacity:1; transform:scale(1) translateY(0);       clip-path:inset(0 0 0 0); }
+}
+@keyframes slideUp        { from { transform:translateY(100%); } to { transform:translateY(0); } }
+@keyframes digitFlip      { 0% { transform:rotateX(0deg); } 50% { transform:rotateX(-90deg); opacity:0.3; } 100% { transform:rotateX(0deg); } }
+@keyframes floatParticle  { 0%,100%{transform:translateY(0) translateX(0);opacity:0.3;} 25%{transform:translateY(-20px) translateX(10px);opacity:0.6;} 50%{transform:translateY(-10px) translateX(-5px);opacity:0.4;} 75%{transform:translateY(-30px) translateX(5px);opacity:0.5;} }
+@keyframes swatchPop      { 0%{transform:scale(1);} 40%{transform:scale(1.25);} 100%{transform:scale(1.18);} }
+@keyframes sizeRipple     { 0%{box-shadow:0 0 0 0 var(--color-primary-glow);} 70%{box-shadow:0 0 0 12px transparent;} 100%{box-shadow:0 0 0 0 transparent;} }
+@keyframes urgentPulse    { 0%,100%{transform:scale(1);opacity:1;} 50%{transform:scale(1.4);opacity:0.5;} }
+@keyframes ctaGlow        { 0%,100%{box-shadow:0 4px 24px var(--color-primary-glow);} 50%{box-shadow:0 6px 32px var(--color-primary-glow), 0 0 60px rgba(194,24,91,0.1);} }
+@keyframes priceReveal    { from{opacity:0;transform:translateY(20px) scale(0.9);} to{opacity:1;transform:translateY(0) scale(1);} }
+@keyframes oldPriceStrike { from{width:0;} to{width:100%;} }
+@keyframes shimmer        { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+@keyframes topBarPulse    { 0%,100%{opacity:1;} 50%{opacity:0.85;} }
+@keyframes confettiFall   { 0%{transform:translateY(-20px) rotate(0deg) scale(1);opacity:1;} 100%{transform:translateY(300px) rotate(720deg) scale(0.5);opacity:0;} }
+@keyframes lightboxIn     { from{opacity:0;} to{opacity:1;} }
+@keyframes lightboxImgIn  { from{opacity:0;transform:scale(0.85) translateY(20px);} to{opacity:1;transform:scale(1) translateY(0);} }
+@keyframes fieldGlow      { 0%{box-shadow:0 0 0 0 var(--color-primary-glow);} 50%{box-shadow:0 0 0 4px var(--color-primary-glow);} 100%{box-shadow:0 0 0 3px var(--color-primary-glow);} }
+@keyframes shake          { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-8px);} 40%{transform:translateX(8px);} 60%{transform:translateX(-4px);} 80%{transform:translateX(4px);} }
+```
+
+### Scroll Reveal System
+
+```css
+.reveal-on-scroll {
+  opacity:0; transform:translateY(50px);
+  transition: opacity 0.8s var(--ease-out-expo), transform 0.8s var(--ease-out-expo);
+}
+.reveal-on-scroll.revealed    { opacity:1; transform:translateY(0); }
+.reveal-on-scroll.reveal-scale { transform:translateY(50px) scale(0.95); }
+.reveal-on-scroll.reveal-scale.revealed { transform:translateY(0) scale(1); }
+.reveal-delay-1 { transition-delay:0.1s; }
+.reveal-delay-2 { transition-delay:0.2s; }
+.reveal-delay-3 { transition-delay:0.3s; }
+```
+
+### Hero Entrance Stagger Delays
+| Element | Animation | Delay |
+|---------|-----------|-------|
+| Hero image | `heroImageReveal 0.9s ease-out-expo` | 0.1s |
+| Brand badge | `fadeSlideUp 0.6s` | 0.3s |
+| H1 | `fadeSlideUp 0.7s` | 0.45s |
+| Sub-headline | `fadeSlideUp 0.6s` | 0.55s |
+| Price block | `priceReveal 0.6s` | 0.6s |
+| Color selector | `fadeSlideUp 0.5s` | 0.7s |
+| Size selector | `fadeSlideUp 0.5s` | 0.8s |
+| Value bullets | `fadeSlideUp 0.5s` | 0.9s |
+| CTA button | `scaleReveal 0.6s ease-spring` | 1.0s |
+
+---
+
+## HTML HEAD TEMPLATE
+
+```html
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#C2185B">
+  <title><!-- [EDITABLE: PAGE_TITLE] --></title>
+
+  <!-- Open Graph -->
+  <meta property="og:title"       content="<!-- [EDITABLE: OG_TITLE] -->">
+  <meta property="og:description" content="<!-- [EDITABLE: OG_DESC] -->">
+  <meta property="og:image"       content="<!-- OG_IMAGE_URL injected by JS -->">
+  <meta property="og:type"        content="product">
+  <meta property="og:locale"      content="ar_DZ">
+
+  <!-- Facebook Pixel (only if PIXEL_ID !== '') -->
+  <script>
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+    document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    // PIXEL_ID injected below by JS after DOM load
+  </script>
+  <noscript>
+    <img height="1" width="1" style="display:none"
+         src="https://www.facebook.com/tr?id=PIXEL_ID&ev=PageView&noscript=1"/>
+  </noscript>
+
+  <style>/* ALL CSS HERE */</style>
+</head>
+```
+
+> **Note:** Pixel initialization happens in `initPixel()` inside `DOMContentLoaded` using the `PIXEL_ID` const. If `PIXEL_ID === ''`, skip entirely.
+
+---
+
+## PAGE ARCHITECTURE — SECTION ORDER (STRICT)
+
+### Section 0 — Floating Top Bar (Fixed)
+```
+Content:   <!-- [EDITABLE: TOP_BAR_TEXT] -->
+           "🚚 التوصيل متاح لجميع الولايات — الدفع عند الاستلام"
+Style:     bg var(--color-primary), white text, 14px, centered, padding 10px 0
+Position:  fixed top, z-index 9999
+Animation: topBarPulse 3s ease-in-out infinite
+```
+
+### Section 1 — Hero Zone (Above the Fold)
+```
+Desktop: 2-col (image 55% | copy 45%)
+Mobile:  stacked (image top, copy below)
+Min-height: 100vh mobile
+```
+
+**Left: Image Gallery**
+```
+Main image:
+  aspect-ratio: 3/4 | object-fit: cover
+  animation: heroImageReveal 0.9s
+  Loading state: shimmer effect (class .image-loading)
+
+Thumbnail strip (4 items, horizontal scroll):
+  70px × 90px | border-radius 10px | gap 8px
+  Selected: border 2px var(--color-primary) + scale(1.05)
+  Click → crossfade swap (opacity 0.3s)
+
+<!-- IMAGE_PLACEHOLDER: hero-main — Front view -->
+<!-- IMAGE_PLACEHOLDER: thumb-2   — Back view -->
+<!-- IMAGE_PLACEHOLDER: thumb-3   — Fabric / detail close-up -->
+<!-- IMAGE_PLACEHOLDER: thumb-4   — Lifestyle / worn photo -->
+```
+
+**Right: Copy Stack**
+```
+1. Brand badge    "BRAND_NAME — أناقة جزائرية أصيلة"
+   pill shape | var(--color-primary) border | 12px
+   <!-- [EDITABLE: BRAND_BADGE] -->
+
+2. H1 Headline    max 12 words
+   Formula: [Adjective] + [Product] + [Benefit/Occasion]
+   var(--text-2xl) mobile / var(--text-3xl) desktop | weight 800
+   <!-- [EDITABLE: H1] -->
+
+3. Sub-headline   15px | text-muted | line-height 1.7
+   <!-- [EDITABLE: SUBHEADLINE] -->
+
+4. Price Block
+   Old price: animated strikethrough (oldPriceStrike)
+   New price: var(--text-2xl) | weight 800 | var(--color-primary)
+   Savings badge: var(--color-secondary) | pill
+   <!-- [EDITABLE: SAVINGS_BADGE] --> "وفّر 40%"
+
+5. Color Selector
+   Label: "اللون:" + selected color name
+   Swatches: 40px circles | states: available / unavailable / selected
+   Unavailable: 25% opacity + diagonal stripe overlay
+   Selected: swatchPop animation + ✓ checkmark overlay
+
+6. Size Selector
+   Label: "المقاس:" + selected value
+   Buttons: min-height 48px | states: available / unavailable / urgent
+   Urgent: red pulse dot + message reveal on selection
+   Size guide link → modal (if SIZE_GUIDE !== "none")
+
+7. Value Bullets (4)
+   ✅ <!-- [EDITABLE: BULLET_1] --> "خامة MATERIAL — مريحة وغير شفافة"
+   ✅ <!-- [EDITABLE: BULLET_2] --> "مقاسات متعددة تناسب كل الجسميات"
+   ✅ <!-- [EDITABLE: BULLET_3] --> "التوصيل لجميع الولايات — الدفع عند الاستلام"
+   ✅ <!-- [EDITABLE: BULLET_4] --> "ضمان التبديل إذا لم يناسبك المقاس"
+   Stagger: 0.1s between each
+
+8. Primary CTA
+   Text: <!-- [EDITABLE: CTA_HERO] --> "اطلبي الآن — الدفع عند الاستلام"
+   Style: full gradient | white | 18px bold | radius-pill | ctaGlow 3s infinite
+   Shine sweep on hover (::before left: -100% → 100%)
+   href: smooth scroll to #order-form
+   Micro-text: "🛡️ طلبك مضمون — نتصل بك لتأكيد التفاصيل خلال ساعة"
+   <!-- [EDITABLE: MICRO_TEXT] -->
+```
+
+### Section 2 — Urgency Bar
+```
+Bg: linear-gradient(#FFF8E1, #FFF3E0)
+3 flex blocks:
+  🔥 <!-- [EDITABLE: URGENCY_STOCK] -->  "تبقت كميات محدودة"
+  ⏰ "العرض ينتهي خلال:" + <span id="cd-hours">:<span id="cd-minutes">:<span id="cd-seconds">
+  👗 <!-- [EDITABLE: URGENCY_ORDERS] --> "تم طلبها 38 مرة اليوم"
+Countdown: localStorage, 4-hour cycle, digitFlip on digit change
+```
+
+### Section 3 — Problem / Solution
+```
+Part A — Pain: 3 cards with ❌ | <!-- [EDITABLE: PROBLEM_X] -->
+Part B — Solution: 3 cards with ✅ | <!-- [EDITABLE: SOLUTION_X] -->
+Animation: reveal-on-scroll stagger
+```
+
+### Section 4 — Product Features (2×2 grid)
+```
+🧵 "الخامة"  / MATERIAL
+📐 "المقاسات" / "XS إلى XXL"
+🎨 "الألوان" / "N لون راقٍ"
+✨ "التصميم" / "مناسب لكل المناسبات"
+Card hover: translateY(-6px) + shadow increase
+```
+
+### Section 5 — Testimonials & Social Proof
+```
+3 cards: stars | quote | name + wilaya | avatar initial circle
+Stats bar (animated counters on scroll):
+  <!-- [EDITABLE: STAT_1] --> "5,000+" عميلة سعيدة
+  <!-- [EDITABLE: STAT_2] --> "98%"    نسبة رضا
+  "69" ولاية مغطاة
+```
+
+### Section 6 — How It Works (3 Steps)
+```
+Bg: var(--color-bg-dark) + floating particles
+Step 1: "اختاري منتجك وأضيفي طلبك" — reveal-delay-1
+Step 2: "نتصل بك لتأكيد الطلب والتوصيل" — reveal-delay-2
+Step 3: "استقبلي طلبك وادفعي عند الاستلام" — reveal-delay-3
+Connecting line desktop: gradient primary → gold
+NOTE: Step 2 MUST mention that delivery cost is communicated by phone call.
+```
+
+### Section 7 — Gallery (Multi-angle lightbox)
+```
+2-col grid | gap 12px | reveal-scale stagger
+4 slots: front | back | fabric | lifestyle
+Tap → lightbox: backdrop blur + swipe nav + counter "1 / 4"
+```
+
+### Section 8 — FAQ (Accordion)
+```
+Bg: var(--color-bg-alt)
+Single-open | max-height transition 0.35s | chevron rotate 180°
+Left border color reveal on open
+
+Q1: <!-- [EDITABLE: FAQ_Q1] --> "كيف أختار مقاسي الصحيح؟"
+Q2: <!-- [EDITABLE: FAQ_Q2] --> "هل يمكنني التبديل أو الإرجاع؟"
+Q3: <!-- [EDITABLE: FAQ_Q3] --> "ما هي خامة المنتج؟"
+Q4: <!-- [EDITABLE: FAQ_Q4] --> "كيف يتم تأكيد الطلب وسعر التوصيل؟"
+    ANSWER MUST SAY: "يتصل بك أحد موظفينا لتأكيد طلبك وإبلاغك بسعر التوصيل حسب ولايتك"
+Q5: <!-- [EDITABLE: FAQ_Q5] --> "كم يستغرق التوصيل؟"
+```
+
+### Section 9 — Order Form (THE Conversion Point)
+```
+ID: order-form | Bg: gradient white → var(--color-bg-warm)
+Form card: white | var(--radius-lg) | var(--shadow-xl) | max-width 620px | centered
+```
+
+**Selected Summary (read-only, above fields):**
+```
+المنتج  : PRODUCT_NAME
+اللون   : [swatch circle] [color name]
+المقاس  : [size]
+السعر   : PRICE DA
+──────────────────────────
+التوصيل : سيتم إبلاغك عند تأكيد الطلب
+💰 تدفعين عند الاستلام فقط
+[تغيير ↑] → smooth scroll to hero
+```
+
+**Form Fields:**
+| Field | Type | Required | Validation | Placeholder AR |
+|-------|------|----------|------------|----------------|
+| الاسم الكامل | text | YES | min 3 chars, no numbers | "مريم خالد" |
+| رقم الهاتف | tel | YES | `^0[5-7][0-9]{8}$` | "05XX XX XX XX" |
+| الولاية | select | YES | must select | "اختري ولايتك" |
+| البلدية | select | YES | cascade from wilaya | "اختري بلديتك" |
+| العنوان الكامل | textarea | YES | min 10 chars | "حي..., شارع..., قرب..." |
+| ملاحظات | textarea | NO | — | "مثلاً: اتصلي صباحاً" |
+
+**Honeypot (mandatory — invisible to humans):**
+```html
+<div aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;pointer-events:none;height:0;overflow:hidden;">
+  <label for="hp_w">لا تملأ هذا الحقل</label>
+  <input type="text" id="hp_w" name="hp_w" tabindex="-1" autocomplete="off">
+</div>
+```
+
+**Submit Button States:**
+| State | Text | Color |
+|-------|------|-------|
+| Default | ✅ تأكيد الطلب | gradient |
+| Loading | ⏳ جاري الإرسال... + spinner | muted |
+| Success | ✅ تم استلام طلبك! | green |
+| Timeout | ⚠️ انتهت المهلة — أعيدي المحاولة | orange |
+| Error | ❌ حدث خطأ، أعيدي المحاولة | red |
+
+**Trust Row:**
+```
+🔒 معلوماتك آمنة  |  📞 تأكيد بالهاتف  |  🚚 توصيل لجميع الولايات  |  💵 الدفع عند الاستلام
+```
+
+**Success Message + Confetti:**
+```
+<!-- [EDITABLE: SUCCESS_MSG] -->
+"تم استلام طلبك! سنتصل بك خلال ساعة لتأكيد المقاس واللون وتفاصيل التوصيل."
+```
+
+### Section 10 — Sticky Bottom CTA (Mobile Only)
+```
+display:none @media min-width:1024px
+Fixed bottom | z-index 9998 | white bg | border-top | shadow-lg
+Show when hero exits viewport (IntersectionObserver)
+Animation: slideUp 0.4s on show | translateY(100%) on hide
+Content: [PRICE DA] right | "اطلبي الآن" button left → scroll to #order-form
+```
+
+### Section 11 — Footer
+```
+Bg: var(--color-bg-dark) | text #AAAAAA | 13px
+BRAND_NAME
+<!-- [EDITABLE: FOOTER_TEXT] -->
+WhatsApp: WHATSAPP_NUM
+Zero external links.
+```
+
+---
+
+## JAVASCRIPT — COMPLETE IMPLEMENTATIONS
+
+```javascript
+'use strict';
+
+// ── All [USER_*] consts here (see User Input Schema) ──
+
+const UTM = (() => {
+  const p = new URLSearchParams(window.location.search);
+  return {
+    source:   p.get('utm_source')   || 'direct',
+    medium:   p.get('utm_medium')   || '',
+    campaign: p.get('utm_campaign') || '',
+    content:  p.get('utm_content')  || '',
+    term:     p.get('utm_term')     || ''
+  };
+})();
+
+let selectedSize  = '';
+let selectedColor = '';
+let formSubmitRetried = false;
+
+// ─────────────────────────────────────────
+// DOM READY
+// ─────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  initPixel();
+  initEntranceAnimations();
+  initScrollReveals();
+  initColorSelector();
+  initSizeSelector();
+  initCountdown();
+  initImageGallery();
+  initFAQAccordion();
+  initWilayaCascade();
+  initStickyMobileCTA();
+  initFormValidation();
+  initFloatingParticles();
+  initAnimatedCounters();
+  document.getElementById('order-form-element')
+    .addEventListener('submit', handleFormSubmit);
+});
+
+// ─────────────────────────────────────────
+// PIXEL
+// ─────────────────────────────────────────
+function initPixel() {
+  if (!PIXEL_ID) return;
+  fbq('init', PIXEL_ID);
+  fbq('track', 'PageView');
+}
+
+// ─────────────────────────────────────────
+// ENTRANCE ANIMATIONS
+// ─────────────────────────────────────────
+function initEntranceAnimations() {
+  // CSS handles staggered delays via animation-delay on each element.
+  // This function adds the animation classes to trigger them.
+  const els = [
+    ['#hero-image-wrap', 'hero-animate'],
+    ['#brand-badge',     'hero-animate'],
+    ['#hero-h1',         'hero-animate'],
+    ['#hero-sub',        'hero-animate'],
+    ['#price-block',     'hero-animate'],
+    ['#color-selector',  'hero-animate'],
+    ['#size-selector',   'hero-animate'],
+    ['#value-bullets',   'hero-animate'],
+    ['#cta-hero',        'hero-animate'],
+  ];
+  els.forEach(([sel, cls]) => {
+    const el = document.querySelector(sel);
+    if (el) el.classList.add(cls);
+  });
+}
+
+// ─────────────────────────────────────────
+// SCROLL REVEALS
+// ─────────────────────────────────────────
+function initScrollReveals() {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('revealed');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.reveal-on-scroll').forEach(el => observer.observe(el));
+}
+
+// ─────────────────────────────────────────
+// COLOR SELECTOR
+// ─────────────────────────────────────────
+function initColorSelector() {
+  const container = document.getElementById('color-swatches');
+  if (!container) return;
+
+  COLOR_DATA.forEach(color => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'color-swatch' + (color.available ? '' : ' unavailable');
+    btn.dataset.colorName = color.name;
+    btn.dataset.colorHex  = color.hex;
+    btn.style.background  = color.hex;
+    btn.title = color.name;
+    btn.disabled = !color.available;
+    if (!color.available) {
+      btn.setAttribute('aria-label', color.name + ' — غير متوفر');
+    }
+    btn.addEventListener('click', () => selectColor(btn));
+    container.appendChild(btn);
+  });
+}
+
+function selectColor(btn) {
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedColor = btn.dataset.colorName;
+
+  // Update all color displays
+  ['color-display', 'form-color-display', 'summary-color-name'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = selectedColor;
+  });
+
+  // Update summary swatch
+  const summSwatch = document.getElementById('summary-color-swatch');
+  if (summSwatch) summSwatch.style.background = btn.dataset.colorHex;
+
+  // Clear validation error if present
+  document.getElementById('color-selector')?.classList.remove('selector-error');
+}
+
+// ─────────────────────────────────────────
+// SIZE SELECTOR
+// ─────────────────────────────────────────
+function initSizeSelector() {
+  const container = document.getElementById('size-buttons');
+  if (!container) return;
+
+  SIZE_DATA.forEach(size => {
+    const wrap = document.createElement('div');
+    wrap.style.position = 'relative';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'size-btn' + (size.available ? '' : ' unavailable');
+    btn.textContent = size.label;
+    btn.disabled = !size.available;
+    btn.dataset.size = size.label;
+    btn.dataset.urgent = size.urgent ? 'true' : 'false';
+
+    if (size.urgent && size.available) {
+      const dot = document.createElement('span');
+      dot.className = 'size-urgent-dot';
+      dot.style.cssText = 'position:absolute;top:-4px;right:-4px;width:8px;height:8px;background:#F44336;border-radius:50%;';
+      dot.style.animation = 'urgentPulse 1.5s ease infinite';
+      wrap.appendChild(dot);
+    }
+
+    btn.addEventListener('click', () => selectSize(btn));
+    wrap.appendChild(btn);
+    container.appendChild(wrap);
+  });
+}
+
+function selectSize(btn) {
+  document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedSize = btn.dataset.size;
+
+  ['size-display', 'form-size-display', 'summary-size'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = selectedSize;
+  });
+
+  // Show urgent message if applicable
+  const urgentMsg = document.getElementById('urgent-size-msg');
+  if (urgentMsg) {
+    urgentMsg.style.display = btn.dataset.urgent === 'true' ? 'block' : 'none';
+  }
+
+  document.getElementById('size-selector')?.classList.remove('selector-error');
+}
+
+// ─────────────────────────────────────────
+// COUNTDOWN — localStorage backed, 4-hour cycle
+// ─────────────────────────────────────────
+function initCountdown() {
+  const KEY      = 'cod_v5_expiry';
+  const DURATION = 4 * 60 * 60 * 1000;
+
+  let expiry = parseInt(localStorage.getItem(KEY));
+  if (!expiry || Date.now() > expiry) {
+    expiry = Date.now() + DURATION;
+    localStorage.setItem(KEY, String(expiry));
+  }
+
+  const pad = n => String(n).padStart(2, '0');
+
+  function update() {
+    const remaining = Math.max(0, expiry - Date.now());
+    const h = Math.floor(remaining / 3600000);
+    const m = Math.floor((remaining % 3600000) / 60000);
+    const s = Math.floor((remaining % 60000) / 1000);
+
+    [['cd-hours', h], ['cd-minutes', m], ['cd-seconds', s]].forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const newVal = pad(val);
+      if (el.textContent !== newVal) {
+        el.style.animation = 'none';
+        void el.offsetWidth; // force reflow
+        el.style.animation = 'digitFlip 0.6s var(--ease-out-expo)';
+        el.textContent = newVal;
+      }
+    });
+
+    if (remaining === 0) {
+      // Reset for next cycle
+      const newExpiry = Date.now() + DURATION;
+      localStorage.setItem(KEY, String(newExpiry));
+    }
+  }
+
+  update();
+  setInterval(update, 1000);
+}
+
+// ─────────────────────────────────────────
+// IMAGE GALLERY
+// ─────────────────────────────────────────
+function initImageGallery() {
+  const mainImg = document.getElementById('hero-main-img');
+  const thumbs  = document.querySelectorAll('.thumb-img');
+  const galleryImgs = document.querySelectorAll('.gallery-img');
+  const lightbox    = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightbox-img');
+  const lightboxCounter = document.getElementById('lightbox-counter');
+  const galleryArr = Array.from(galleryImgs);
+  let currentLightboxIdx = 0;
+
+  // Thumbnail swap
+  thumbs.forEach((thumb, i) => {
+    thumb.addEventListener('click', () => {
+      if (!mainImg) return;
+      mainImg.style.opacity = '0';
+      setTimeout(() => {
+        mainImg.src = thumb.src;
+        mainImg.style.opacity = '1';
+      }, 150);
+      mainImg.style.transition = 'opacity 0.3s ease';
+      thumbs.forEach(t => t.classList.remove('active'));
+      thumb.classList.add('active');
+    });
+  });
+
+  // Lightbox open
+  galleryImgs.forEach((img, i) => {
+    img.addEventListener('click', () => openLightbox(i));
+    img.style.cursor = 'zoom-in';
+  });
+
+  function openLightbox(idx) {
+    if (!lightbox || !lightboxImg) return;
+    currentLightboxIdx = idx;
+    lightboxImg.src = galleryArr[idx].src;
+    if (lightboxCounter) lightboxCounter.textContent = `${idx + 1} / ${galleryArr.length}`;
+    lightbox.style.display = 'flex';
+    lightbox.style.animation = 'lightboxIn 0.35s var(--ease-out-expo) forwards';
+    lightboxImg.style.animation = 'lightboxImgIn 0.4s var(--ease-out-expo) 0.1s both';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    if (!lightbox) return;
+    lightbox.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  // Close handlers
+  document.getElementById('lightbox-close')?.addEventListener('click', closeLightbox);
+  lightbox?.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
+
+  // Keyboard
+  document.addEventListener('keydown', e => {
+    if (!lightbox || lightbox.style.display === 'none') return;
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowLeft')  openLightbox((currentLightboxIdx + 1) % galleryArr.length);
+    if (e.key === 'ArrowRight') openLightbox((currentLightboxIdx - 1 + galleryArr.length) % galleryArr.length);
+  });
+
+  // Touch swipe
+  let touchStartX = 0;
+  lightboxImg?.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  lightboxImg?.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) {
+      openLightbox(dx < 0
+        ? (currentLightboxIdx + 1) % galleryArr.length
+        : (currentLightboxIdx - 1 + galleryArr.length) % galleryArr.length);
+    }
+  });
+}
+
+// ─────────────────────────────────────────
+// FAQ ACCORDION
+// ─────────────────────────────────────────
+function initFAQAccordion() {
+  document.querySelectorAll('.faq-item').forEach(item => {
+    const question = item.querySelector('.faq-question');
+    const answer   = item.querySelector('.faq-answer');
+    if (!question || !answer) return;
+
+    answer.style.maxHeight = '0';
+    answer.style.overflow  = 'hidden';
+    answer.style.transition = 'max-height 0.35s ease';
+
+    question.addEventListener('click', () => {
+      const isOpen = item.classList.contains('open');
+
+      // Close all
+      document.querySelectorAll('.faq-item.open').forEach(openItem => {
+        openItem.classList.remove('open');
+        openItem.querySelector('.faq-answer').style.maxHeight = '0';
+        openItem.querySelector('.faq-chevron')?.style.setProperty('transform', 'rotate(0deg)');
+      });
+
+      // Open clicked if was closed
+      if (!isOpen) {
+        item.classList.add('open');
+        answer.style.maxHeight = answer.scrollHeight + 'px';
+        item.querySelector('.faq-chevron')?.style.setProperty('transform', 'rotate(180deg)');
+      }
+    });
+  });
+}
+
+// ─────────────────────────────────────────
+// WILAYA → COMMUNE CASCADE
+// ─────────────────────────────────────────
+function initWilayaCascade() {
+  const wilayaSelect  = document.getElementById('field_wilaya');
+  const communeSelect = document.getElementById('field_commune');
+  if (!wilayaSelect || !communeSelect) return;
+
+  wilayaSelect.addEventListener('change', () => {
+    const code = wilayaSelect.value;
+    communeSelect.innerHTML = '<option value="">اختري بلديتك</option>';
+    communeSelect.disabled = !code;
+
+    if (code && COMMUNE_DATA[code]) {
+      COMMUNE_DATA[code].forEach(commune => {
+        const opt = document.createElement('option');
+        opt.value = commune;
+        opt.textContent = commune;
+        communeSelect.appendChild(opt);
+      });
+    }
+  });
+}
+
+// ─────────────────────────────────────────
+// STICKY MOBILE CTA
+// ─────────────────────────────────────────
+function initStickyMobileCTA() {
+  const stickyCTA = document.getElementById('sticky-cta');
+  const hero      = document.getElementById('hero-section');
+  if (!stickyCTA || !hero) return;
+
+  const observer = new IntersectionObserver(([entry]) => {
+    if (window.innerWidth >= 1024) return;
+    if (!entry.isIntersecting) {
+      stickyCTA.style.transform = 'translateY(0)';
+      stickyCTA.style.animation = 'slideUp 0.4s var(--ease-out-expo) forwards';
+    } else {
+      stickyCTA.style.transform = 'translateY(100%)';
+    }
+  }, { threshold: 0 });
+
+  observer.observe(hero);
+}
+
+// ─────────────────────────────────────────
+// FORM VALIDATION
+// ─────────────────────────────────────────
+function initFormValidation() {
+  const rules = [
+    { id: 'field_name',    validate: v => v.trim().length >= 3,                   msg: 'الرجاء إدخال الاسم الكامل (3 أحرف على الأقل)' },
+    { id: 'field_phone',   validate: v => /^0[5-7][0-9]{8}$/.test(v.trim()),     msg: 'رقم الهاتف غير صحيح — مثال: 0555123456' },
+    { id: 'field_wilaya',  validate: v => v !== '',                                msg: 'الرجاء اختيار الولاية' },
+    { id: 'field_commune', validate: v => v !== '',                                msg: 'الرجاء اختيار البلدية' },
+    { id: 'field_address', validate: v => v.trim().length >= 10,                  msg: 'الرجاء إدخال العنوان بالتفصيل (10 أحرف على الأقل)' },
+  ];
+
+  rules.forEach(({ id, validate, msg }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('blur', () => {
+      const err = document.getElementById(`${id}-error`);
+      if (!validate(el.value)) {
+        el.classList.add('field-error');
+        if (err) { err.textContent = msg; err.style.display = 'block'; }
+      } else {
+        el.classList.remove('field-error');
+        if (err) err.style.display = 'none';
+      }
+    });
+  });
+}
+
+function validateForm() {
+  const rules = [
+    { id: 'field_name',    validate: v => v.trim().length >= 3,               msg: 'الرجاء إدخال الاسم الكامل' },
+    { id: 'field_phone',   validate: v => /^0[5-7][0-9]{8}$/.test(v.trim()), msg: 'رقم الهاتف غير صحيح' },
+    { id: 'field_wilaya',  validate: v => v !== '',                            msg: 'الرجاء اختيار الولاية' },
+    { id: 'field_commune', validate: v => v !== '',                            msg: 'الرجاء اختيار البلدية' },
+    { id: 'field_address', validate: v => v.trim().length >= 10,              msg: 'الرجاء إدخال العنوان بالتفصيل' },
+  ];
+  let valid = true;
+  rules.forEach(({ id, validate, msg }) => {
+    const el  = document.getElementById(id);
+    const err = document.getElementById(`${id}-error`);
+    if (!el) return;
+    if (!validate(el.value)) {
+      valid = false;
+      el.classList.add('field-error');
+      if (err) { err.textContent = msg; err.style.display = 'block'; }
+      if (valid === false) el.focus(); // focus first error
+    }
+  });
+  return valid;
+}
+
+// ─────────────────────────────────────────
+// FORM SUBMIT — with timeout + retry
+// ─────────────────────────────────────────
+async function handleFormSubmit(e) {
+  e.preventDefault();
+
+  // 1. Honeypot
+  if (document.getElementById('hp_w')?.value !== '') {
+    showFakeSuccess();
+    return;
+  }
+
+  // 2. Selection validation
+  if (!selectedColor) {
+    shakeElement('color-selector');
+    document.getElementById('color-selector')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+  if (!selectedSize) {
+    shakeElement('size-selector');
+    document.getElementById('size-selector')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  // 3. Field validation
+  if (!validateForm()) return;
+
+  // 4. Build payload
+  const getVal = id => document.getElementById(id)?.value || '';
+  const getOptText = id => {
+    const sel = document.getElementById(id);
+    return sel?.options[sel.selectedIndex]?.text || '';
+  };
+
+  const payload = {
+    name:         getVal('field_name').trim(),
+    phone:        getVal('field_phone').trim(),
+    wilaya:       getOptText('field_wilaya'),
+    commune:      getOptText('field_commune'),
+    address:      getVal('field_address').trim(),
+    notes:        getVal('field_notes').trim(),
+    product:      PRODUCT_NAME,
+    color:        selectedColor,
+    size:         selectedSize,
+    price:        PRODUCT_PRICE,
+    utm_source:   UTM.source,
+    utm_medium:   UTM.medium,
+    utm_campaign: UTM.campaign,
+    utm_content:  UTM.content,
+    utm_term:     UTM.term,
+    page_url:     window.location.href,
+    timestamp:    new Date().toISOString()
+  };
+
+  // 5. Send with timeout
+  setButtonState('loading');
+
+  const controller = new AbortController();
+  const timeoutId  = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    await fetch(GAS_URL, {
+      method:  'POST',
+      mode:    'no-cors', // ⚠️ Opaque response — fetch resolve = treat as success
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+      signal:  controller.signal
+    });
+    clearTimeout(timeoutId);
+    onOrderSuccess();
+
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      setButtonState('timeout');
+    } else if (!formSubmitRetried) {
+      formSubmitRetried = true;
+      setButtonState('loading');
+      setTimeout(() => handleFormSubmit(e), 3000); // one auto-retry
+    } else {
+      setButtonState('error');
+    }
+  }
+}
+
+function onOrderSuccess() {
+  setButtonState('success');
+  triggerConfetti();
+
+  const msg = document.getElementById('success-message');
+  if (msg) msg.style.display = 'block';
+
+  // Disable form to prevent double submit
+  document.getElementById('order-form-element')
+    ?.querySelectorAll('input,select,textarea,button')
+    .forEach(el => el.disabled = true);
+
+  // Pixel Lead event
+  if (PIXEL_ID) {
+    fbq('track', 'Lead', {
+      value:    parseFloat(PRODUCT_PRICE),
+      currency: 'DZD',
+      content_name: PRODUCT_NAME
+    });
+  }
+
+  // Scroll to success message
+  msg?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function showFakeSuccess() {
+  // Bot submitted — show success without sending
+  setButtonState('success');
+  triggerConfetti();
+}
+
+function setButtonState(state) {
+  const btn = document.getElementById('submit-btn');
+  if (!btn) return;
+  const states = {
+    loading: { text: '⏳ جاري الإرسال...', disabled: true,  cls: 'btn-loading' },
+    success: { text: '✅ تم استلام طلبك!', disabled: true,  cls: 'btn-success' },
+    timeout: { text: '⚠️ انتهت المهلة — أعيدي المحاولة',  disabled: false, cls: 'btn-error' },
+    error:   { text: '❌ حدث خطأ، أعيدي المحاولة',         disabled: false, cls: 'btn-error' },
+    default: { text: '✅ تأكيد الطلب',     disabled: false, cls: '' }
+  };
+  const s = states[state] || states.default;
+  btn.textContent = s.text;
+  btn.disabled    = s.disabled;
+  btn.className   = 'cta-button submit-btn ' + s.cls;
+}
+
+// ─────────────────────────────────────────
+// CONFETTI
+// ─────────────────────────────────────────
+function triggerConfetti() {
+  const colors = [
+    getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim(),
+    getComputedStyle(document.documentElement).getPropertyValue('--color-gold').trim(),
+    getComputedStyle(document.documentElement).getPropertyValue('--color-secondary').trim(),
+  ];
+  for (let i = 0; i < 20; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + 'vw';
+    piece.style.top  = '-10px';
+    piece.style.background = colors[i % colors.length];
+    piece.style.animationDuration = (2 + Math.random() * 2) + 's';
+    piece.style.animationDelay   = (Math.random() * 0.5) + 's';
+    if (i % 3 === 0)  { piece.style.width = '6px';  piece.style.height = '12px'; }
+    if (i % 4 === 0)  { piece.style.borderRadius = '50%'; piece.style.width = '10px'; piece.style.height = '10px'; }
+    document.body.appendChild(piece);
+    setTimeout(() => piece.remove(), 4000);
+  }
+}
+
+// ─────────────────────────────────────────
+// FLOATING PARTICLES (hero background)
+// ─────────────────────────────────────────
+function initFloatingParticles() {
+  const hero = document.getElementById('hero-section');
+  if (!hero) return;
+  for (let i = 0; i < 8; i++) {
+    const p = document.createElement('div');
+    p.className = 'floating-particle';
+    p.style.left   = Math.random() * 100 + '%';
+    p.style.top    = Math.random() * 100 + '%';
+    p.style.animationDelay    = (Math.random() * 4) + 's';
+    p.style.animationDuration = (6 + Math.random() * 4) + 's';
+    hero.appendChild(p);
+  }
+}
+
+// ─────────────────────────────────────────
+// ANIMATED COUNTERS (stats section)
+// ─────────────────────────────────────────
+function initAnimatedCounters() {
+  const counters = document.querySelectorAll('[data-count]');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const el     = entry.target;
+      const target = parseInt(el.dataset.count);
+      const suffix = el.dataset.suffix || '';
+      let start = 0;
+      const step = target / 50;
+      const timer = setInterval(() => {
+        start = Math.min(start + step, target);
+        el.textContent = Math.floor(start).toLocaleString('ar-DZ') + suffix;
+        if (start >= target) clearInterval(timer);
+      }, 30);
+      observer.unobserve(el);
+    });
+  }, { threshold: 0.5 });
+  counters.forEach(el => observer.observe(el));
+}
+
+// ─────────────────────────────────────────
+// UTILITIES
+// ─────────────────────────────────────────
+function shakeElement(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('selector-error');
+  void el.offsetWidth;
+  el.classList.add('selector-error');
+  el.addEventListener('animationend', () => el.classList.remove('selector-error'), { once: true });
+}
+```
+
+---
+
+## DATA — 69 WILAYAS
+
+### Wilaya Dropdown (correct order per Jaridat Rassmiya)
+
+```html
+<select id="field_wilaya" name="wilaya" required>
+  <option value="">اختري ولايتك</option>
+  <option value="01">01 - أدرار</option>
+  <option value="02">02 - الشلف</option>
+  <option value="03">03 - الأغواط</option>
+  <option value="04">04 - أم البواقي</option>
+  <option value="05">05 - باتنة</option>
+  <option value="06">06 - بجاية</option>
+  <option value="07">07 - بسكرة</option>
+  <option value="08">08 - بشار</option>
+  <option value="09">09 - البليدة</option>
+  <option value="10">10 - البويرة</option>
+  <option value="11">11 - تمنراست</option>
+  <option value="12">12 - تبسة</option>
+  <option value="13">13 - تلمسان</option>
+  <option value="14">14 - تيارت</option>
+  <option value="15">15 - تيزي وزو</option>
+  <option value="16">16 - الجزائر</option>
+  <option value="17">17 - الجلفة</option>
+  <option value="18">18 - جيجل</option>
+  <option value="19">19 - سطيف</option>
+  <option value="20">20 - سعيدة</option>
+  <option value="21">21 - سكيكدة</option>
+  <option value="22">22 - سيدي بلعباس</option>
+  <option value="23">23 - عنابة</option>
+  <option value="24">24 - قالمة</option>
+  <option value="25">25 - قسنطينة</option>
+  <option value="26">26 - المدية</option>
+  <option value="27">27 - مستغانم</option>
+  <option value="28">28 - المسيلة</option>
+  <option value="29">29 - معسكر</option>
+  <option value="30">30 - ورقلة</option>
+  <option value="31">31 - وهران</option>
+  <option value="32">32 - البيض</option>
+  <option value="33">33 - إليزي</option>
+  <option value="34">34 - برج بوعريريج</option>
+  <option value="35">35 - بومرداس</option>
+  <option value="36">36 - الطارف</option>
+  <option value="37">37 - تندوف</option>
+  <option value="38">38 - تيسمسيلت</option>
+  <option value="39">39 - الوادي</option>
+  <option value="40">40 - خنشلة</option>
+  <option value="41">41 - سوق أهراس</option>
+  <option value="42">42 - تيبازة</option>
+  <option value="43">43 - ميلة</option>
+  <option value="44">44 - عين الدفلى</option>
+  <option value="45">45 - النعامة</option>
+  <option value="46">46 - عين تموشنت</option>
+  <option value="47">47 - غرداية</option>
+  <option value="48">48 - غليزان</option>
+  <!-- 2021 — Ordonnance 21-03 -->
+  <option value="49">49 - تيميمون</option>
+  <option value="50">50 - برج باجي مختار</option>
+  <option value="51">51 - أولاد جلال</option>
+  <option value="52">52 - بني عباس</option>
+  <option value="53">53 - عين صالح</option>
+  <option value="54">54 - عين قزام</option>
+  <option value="55">55 - تقرت</option>
+  <option value="56">56 - جانت</option>
+  <option value="57">57 - المغير</option>
+  <option value="58">58 - المنيعة</option>
+  <!-- 2026 — Loi 26-06, Jaridat Rassmiya No.25, 04 April 2026 -->
+  <option value="59">59 - آفلو</option>
+  <option value="60">60 - بريكة</option>
+  <option value="61">61 - قصر الشلالة</option>
+  <option value="62">62 - مسعد</option>
+  <option value="63">63 - عين وسارة</option>
+  <option value="64">64 - بوسعادة</option>
+  <option value="65">65 - الأبيض سيدي الشيخ</option>
+  <option value="66">66 - القنطرة</option>
+  <option value="67">67 - بئر العاتر</option>
+  <option value="68">68 - قصر البخاري</option>
+  <option value="69">69 - العريشة</option>
+</select>
+```
+
+---
+
+## DATA — COMMUNE_DATA
+
+### Data Quality Rules (ENFORCE ON EVERY GENERATED PAGE)
+1. Every commune name must be **pure Arabic only** — no Latin, Chinese, or numeric characters
+2. No duplicate commune within the same wilaya
+3. The new wilayas 59-69 contain communes transferred from parent wilayas — use official ONS source
+4. If unsure about specific communes, prefer "اكتبي اسم بلديتك في العنوان" fallback option for that wilaya
+5. Validate dataset entry count: total across all wilayas must equal 1541
+
+### COMMUNE_DATA Structure
+
+```javascript
+const COMMUNE_DATA = {
+  // FORMAT: "wilaya_code": ["بلدية 1", "بلدية 2", ...]
+  // RULE: Pure Arabic only. No duplicates. Verified against ONS Code Géographique.
+
+  "01": [/* أدرار — 15 communes */],
+  "02": [/* الشلف — 35 communes */],
+  // ... all 69 wilayas ...
+
+  // ⚠️ NEW WILAYAS (2026) — communes transferred from parent wilayas:
+  // 59 آفلو      ← مقاطعات من الأغواط
+  // 60 بريكة     ← مقاطعات من باتنة
+  // 61 قصر الشلالة ← مقاطعات من تيارت
+  // 62 مسعد      ← مقاطعات من الجلفة
+  // 63 عين وسارة ← مقاطعات من الجلفة
+  // 64 بوسعادة   ← مقاطعات من المسيلة
+  // 65 الأبيض سيدي الشيخ ← مقاطعات من البيض
+  // 66 القنطرة   ← مقاطعات من بسكرة
+  // 67 بئر العاتر ← مقاطعات من تبسة
+  // 68 قصر البخاري ← مقاطعات من المدية
+  // 69 العريشة   ← مقاطعات من تلمسان
+};
+```
+
+> **LLM INSTRUCTION:** Generate COMMUNE_DATA from your training knowledge of Algerian administrative geography. Apply ALL 5 data quality rules strictly before outputting. If uncertain about any wilaya's communes, add an `"أخرى — اذكري البلدية في العنوان"` fallback option at the end of that wilaya's array.
+
+---
+
+## GOOGLE APPS SCRIPT BACKEND
+
+```javascript
+function doPost(e) {
+  try {
+    const ss    = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Orders') || ss.insertSheet('Orders');
+    const data  = JSON.parse(e.postData.contents);
+
+    // Headers on first row
+    if (sheet.getLastRow() === 0) {
+      const headers = [
+        'التاريخ والوقت', 'الاسم', 'الهاتف', 'الولاية', 'البلدية', 'العنوان',
+        'الملاحظات', 'المنتج', 'اللون', 'المقاس', 'السعر (DA)',
+        'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+        'URL الصفحة', 'الحالة'
+      ];
+      sheet.appendRow(headers);
+      sheet.setFrozenRows(1);
+      sheet.getRange(1, 1, 1, headers.length)
+           .setFontWeight('bold').setBackground('#1A1A2E').setFontColor('#FFFFFF');
+    }
+
+    sheet.appendRow([
+      new Date().toLocaleString('ar-DZ', { timeZone: 'Africa/Algiers' }),
+      data.name          || '',
+      data.phone         || '',
+      data.wilaya        || '',
+      data.commune       || '',
+      data.address       || '',
+      data.notes         || '',
+      data.product       || '',
+      data.color         || '',
+      data.size          || '',
+      data.price         || '',
+      data.utm_source    || 'direct',
+      data.utm_medium    || '',
+      data.utm_campaign  || '',
+      data.utm_content   || '',
+      data.utm_term      || '',
+      data.page_url      || '',
+      'جديد ✅'
+    ]);
+
+    // Optional email notification
+    const NOTIFY = '[USER_NOTIFY_EMAIL]'; // set to '' to disable
+    if (NOTIFY) {
+      MailApp.sendEmail({
+        to:      NOTIFY,
+        subject: `🛍️ طلب جديد — ${data.product || ''} | ${data.name || ''}`,
+        body:    `طلب جديد:\n\nالاسم: ${data.name}\nالهاتف: ${data.phone}\nالولاية: ${data.wilaya}\nالبلدية: ${data.commune}\nالعنوان: ${data.address}\nاللون: ${data.color}\nالمقاس: ${data.size}\nالملاحظات: ${data.notes || '—'}\n\nالمصدر: ${data.utm_source}`
+      });
+    }
+
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: 'success' }))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    console.error(err);
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: 'error', message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet() {
+  return ContentService
+    .createTextOutput(JSON.stringify({ status: 'alive', time: new Date().toISOString() }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+```
+
+---
+
+## QA CHECKLIST — BEFORE OUTPUTTING THE PAGE
+
+### Data Integrity
+- [ ] COMMUNE_DATA contains only pure Arabic strings
+- [ ] No duplicate communes within any wilaya
+- [ ] Wilayas 59-69 follow Loi 26-06 order (آفلو=59 … العريشة=69)
+- [ ] Total commune count ≈ 1541
+
+### Business Rules
+- [ ] "مجاني" does NOT appear anywhere
+- [ ] No shipping price shown anywhere on the page
+- [ ] Order summary shows ONLY product price
+- [ ] "التوصيل سيتم إبلاغك عند تأكيد الطلب" present in summary
+- [ ] FAQ Q4 answer mentions phone call for delivery cost
+- [ ] Step 2 in "How It Works" mentions agent calls to confirm delivery cost
+
+### Form & Security
+- [ ] Honeypot field present and checked FIRST in submit handler
+- [ ] Phone regex: `^0[5-7][0-9]{8}$`
+- [ ] Color AND Size required — shake animation if missing
+- [ ] `fetch` uses `mode: 'no-cors'`
+- [ ] AbortController timeout (8s) implemented
+- [ ] One auto-retry on network error
+- [ ] Button disabled after successful submit (prevent double order)
+
+### UX
+- [ ] All CTA text uses feminine form: "اطلبي", "اختاري", "تأكدي"
+- [ ] Countdown uses localStorage — no refresh reset
+- [ ] Sticky CTA hidden on desktop (≥1024px)
+- [ ] All `[USER_*]` vars declared at top of `<script>`
+- [ ] All editable text has `<!-- [EDITABLE: LABEL] -->` comment
+- [ ] All image slots have `<!-- IMAGE_PLACEHOLDER: desc -->` comment
+- [ ] Zero external HTTP requests (images excluded)
+- [ ] Single HTML file — no imports, no CDN
+
+### Pixel (if PIXEL_ID provided)
+- [ ] `fbq('init', PIXEL_ID)` called in `initPixel()`
+- [ ] `fbq('track', 'PageView')` on load
+- [ ] `fbq('track', 'Lead', {...})` on successful order
+
+---
+
+## VERSION INFO
+
+```
+System:     Algerian COD Fashion Landing Page v5.0
+Built on:   v4.0 (Animation-Enhanced Edition)
+Key fixes:  Data quality · Wilaya numbering · Full JS · Fetch timeout
+Market:     Algeria — 69 wilayas (Loi 26-06, April 2026) · 1,541 communes
+Payment:    Cash on Delivery (الدفع عند الاستلام)
+Currency:   DZD (DA / دج)
+Language:   Arabic RTL (MSA — لغة بيضاء)
+Target:     Algerian women, 18-45, mobile shoppers
+Conversion: 4-7% paid Meta/TikTok traffic
+Stack:      HTML5 + CSS3 + Vanilla JS — zero dependencies
+```
