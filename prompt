@@ -1,5 +1,24 @@
-# Elite Algerian COD Landing Page System — v8.1
-## *Editorial-grade design · Cinematic animations · Conversion engine v8 · Critical bug-fix patch*
+# Elite Algerian COD Landing Page System — v9.0
+## *Editorial-grade design · Cinematic animations · Conversion engine v8 · Verified geo-data + Golden Test Suite + Video Module + Prompt-Compiler architecture + Multi-design system*
+
+---
+
+# CHANGELOG: v8.1 → v9.0 (PHASE 0–3, BUILT FROM THE v8.1 AUDIT FINDINGS)
+
+This version exists because a line-by-line audit of a *real generated page* (not this spec) found that the LLM doing the generating drifted from already-correct v8.1 rules under real conditions — most critically by inventing 11 wilaya names and copy-pasting one commune block across 13 different wilayas when `COMMUNES_DATA` wasn't actually supplied. v9.0 does not just repeat the rules louder — it removes the LLM's ability to be the source of truth for geography at all, and adds machine-checkable tests so drift gets caught instead of shipped.
+
+| # | Problem found in the audit | Root cause | v9.0 fix |
+|---|---|---|---|
+| 1 | Wilayas 59–69 fully fabricated/duplicated (11/11 wrong) | Model "filled the gap" from training memory because no real `COMMUNES_DATA` was injected for the test run | **Phase 0**: verified, citation-checked `WILAYAS_69` reference table now hardcoded *in this spec* (never generated) — see below |
+| 2 | Wilayas 54 ("تيزي غانم" → should be "إن قزام") and 55 ("المغير" duplicated → should be "تقرت") also wrong | Same root cause, older batch | Same fix — full 1–69 table is now verified and frozen in this spec |
+| 3 | Same 26-commune block copy-pasted across 13 wilayas (Oran, Tlemcen, Aïn Defla, Ghardaïa…) | No structural guard against the model padding missing data with a plausible-looking repeat | New **Rule 18** wording explicitly names this exact failure mode as forbidden, plus a standalone **commune-data validator script** (ships in `/tools`) that a human runs *before* any data ever reaches the LLM |
+| 4 | `.qty-btn`/`.color-swatch` 34px, `.size-btn` 40px in the generated page, despite this spec's `.swatch`/`.pill` already specifying 44px | Spec compliance ≠ generation compliance — the model silently shrank targets under layout pressure | **Phase 1 Golden Test Suite**: automated tap-target scanner runs on the *output HTML*, not just trusts the prompt |
+| 5 | Honeypot checked after submit-lock in the generated page, despite this spec already ordering it first | Same drift | Golden Test Suite checks the *compiled order of operations* in the output `<script>`, not just the spec |
+| 6 | Emoji (🚚💵✅📞🧵📐🎨✨▶) used in live UI instead of inline SVG | Rule existed but had no enforcement teeth | Golden Test Suite emoji-in-button/icon scanner + Rule 53 self-audit step |
+| 7 | Dead lightbox CSS/JS shipped for a Gallery section that was never rendered on that page | No rule required pruning unused section code | New **Rule 54**: any section/feature not generated must leave zero matching selectors/listeners in the output |
+| 8 | No video support beyond a single hardcoded `./video.mp4` | Never speced | **Phase 2**: full Video Module (UGC vertical clips, hero autoplay/loop, captions, IntersectionObserver pause-offscreen, external hosting requirement for a multi-tenant pipeline) |
+| 9 | Every regeneration repeats the same manual copy-paste of `COMMUNES_DATA`/brand data into the prompt, which is exactly how bug #1 happened | No separation between "rules that never change" and "data that changes per merchant" | **Phase 3**: Prompt Compiler architecture — static spec + per-merchant JSON + verified geo-data assembled programmatically, never by hand |
+| 10 | Only one visual identity (editorial/Aesop-style) regardless of product or brand | No template selection existed | **Design Templates**: `DESIGN_TEMPLATE` selector with 4 distinct, fully-specified visual languages |
 
 ---
 
@@ -150,6 +169,18 @@ const COMMUNES_DATA = [USER_COMMUNES_DATA_JSON];
 // ── Theme Selection ──
 const SEASON_THEME   = '[USER_SEASON]' || 'summer';   // "spring" | "summer" | "autumn" | "winter" | "ramadan" | "eid"
 
+// ── Design Template (NEW — v9.0, see DESIGN TEMPLATES section) ──
+const DESIGN_TEMPLATE = '[USER_DESIGN_TEMPLATE]' || 'editorial-aesop';
+// "editorial-aesop" | "bold-shein-urgency" | "minimal-glossier" | "heritage-ramadan-eid"
+
+// ── Video Module (NEW — v9.0, OPTIONAL — see PHASE 2: VIDEO MODULE) ──
+// Leave VIDEO_DATA empty to skip the module entirely (Rule 54: no orphaned code).
+const VIDEO_DATA = [
+  // { role: "hero" | "ugc", url: "[EXTERNALLY_HOSTED_MP4_OR_HLS_URL]",
+  //   poster: "[POSTER_IMAGE_URL]", caption_track_url: "[VTT_URL]" | null,
+  //   aspect: "9:16" | "1:1" | "16:9" }
+];
+
 // ── Bonus / Hook ──
 const BONUS_OFFER    = '[USER_BONUS]';                // e.g. "شحن مجاني للطلبات فوق 5000 دج" (NOTE: only post-confirm language)
 
@@ -173,6 +204,104 @@ const INITIAL_ORDERS_COUNT = 1247;
 
 ---
 
+# PHASE 0 — VERIFIED GEOGRAPHIC DATA LAYER (NEW — v9.0)
+
+This section exists to make the #1 audit finding structurally impossible to repeat: **the model must never be the source of truth for any wilaya or commune name.**
+
+## A. `WILAYAS_69` — frozen, verified, hardcoded reference (the 69 names/numbers ONLY)
+
+This array is the **complete and final** list of all 69 wilaya names and official numbers, cross-checked against the Journal Officiel (Loi 06-26, 4 April 2026, JO n°25/n°40) and current as of this spec's last update. It is reproduced **verbatim in every generation** — never re-derived, never "remembered," never reordered.
+
+```javascript
+const WILAYAS_69 = [
+  { id:  1, name: "أدرار", batch: "original-1983", transitionalCommunes: false },
+  { id:  2, name: "الشلف", batch: "original-1983", transitionalCommunes: false },
+  { id:  3, name: "الأغواط", batch: "original-1983", transitionalCommunes: false },
+  { id:  4, name: "أم البواقي", batch: "original-1983", transitionalCommunes: false },
+  { id:  5, name: "باتنة", batch: "original-1983", transitionalCommunes: false },
+  { id:  6, name: "بجاية", batch: "original-1983", transitionalCommunes: false },
+  { id:  7, name: "بسكرة", batch: "original-1983", transitionalCommunes: false },
+  { id:  8, name: "بشار", batch: "original-1983", transitionalCommunes: false },
+  { id:  9, name: "البليدة", batch: "original-1983", transitionalCommunes: false },
+  { id: 10, name: "البويرة", batch: "original-1983", transitionalCommunes: false },
+  { id: 11, name: "تمنراست", batch: "original-1983", transitionalCommunes: false },
+  { id: 12, name: "تبسة", batch: "original-1983", transitionalCommunes: false },
+  { id: 13, name: "تلمسان", batch: "original-1983", transitionalCommunes: false },
+  { id: 14, name: "تيارت", batch: "original-1983", transitionalCommunes: false },
+  { id: 15, name: "تيزي وزو", batch: "original-1983", transitionalCommunes: false },
+  { id: 16, name: "الجزائر", batch: "original-1983", transitionalCommunes: false },
+  { id: 17, name: "الجلفة", batch: "original-1983", transitionalCommunes: false },
+  { id: 18, name: "جيجل", batch: "original-1983", transitionalCommunes: false },
+  { id: 19, name: "سطيف", batch: "original-1983", transitionalCommunes: false },
+  { id: 20, name: "سعيدة", batch: "original-1983", transitionalCommunes: false },
+  { id: 21, name: "سكيكدة", batch: "original-1983", transitionalCommunes: false },
+  { id: 22, name: "سيدي بلعباس", batch: "original-1983", transitionalCommunes: false },
+  { id: 23, name: "عنابة", batch: "original-1983", transitionalCommunes: false },
+  { id: 24, name: "قالمة", batch: "original-1983", transitionalCommunes: false },
+  { id: 25, name: "قسنطينة", batch: "original-1983", transitionalCommunes: false },
+  { id: 26, name: "المدية", batch: "original-1983", transitionalCommunes: false },
+  { id: 27, name: "مستغانم", batch: "original-1983", transitionalCommunes: false },
+  { id: 28, name: "المسيلة", batch: "original-1983", transitionalCommunes: false },
+  { id: 29, name: "معسكر", batch: "original-1983", transitionalCommunes: false },
+  { id: 30, name: "ورقلة", batch: "original-1983", transitionalCommunes: false },
+  { id: 31, name: "وهران", batch: "original-1983", transitionalCommunes: false },
+  { id: 32, name: "البيض", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 33, name: "إليزي", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 34, name: "برج بوعريريج", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 35, name: "بومرداس", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 36, name: "الطارف", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 37, name: "تندوف", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 38, name: "تيسمسيلت", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 39, name: "الوادي", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 40, name: "خنشلة", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 41, name: "سوق أهراس", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 42, name: "تيبازة", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 43, name: "ميلة", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 44, name: "عين الدفلى", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 45, name: "النعامة", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 46, name: "عين تموشنت", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 47, name: "غرداية", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 48, name: "غليزان", batch: "batch-1983-2", transitionalCommunes: false },
+  { id: 49, name: "تيميمون", batch: "batch-2019", transitionalCommunes: false },
+  { id: 50, name: "برج باجي مختار", batch: "batch-2019", transitionalCommunes: false },
+  { id: 51, name: "أولاد جلال", batch: "batch-2019", transitionalCommunes: false },
+  { id: 52, name: "بني عباس", batch: "batch-2019", transitionalCommunes: false },
+  { id: 53, name: "عين صالح", batch: "batch-2019", transitionalCommunes: false },
+  { id: 54, name: "إن قزام", batch: "batch-2019", transitionalCommunes: false },
+  { id: 55, name: "تقرت", batch: "batch-2019", transitionalCommunes: false },
+  { id: 56, name: "جانت", batch: "batch-2019", transitionalCommunes: false },
+  { id: 57, name: "المغير", batch: "batch-2019", transitionalCommunes: false },
+  { id: 58, name: "المنيعة", batch: "batch-2019", transitionalCommunes: false },
+  { id: 59, name: "أفلو", batch: "batch-2026", transitionalCommunes: true },
+  { id: 60, name: "بريكة", batch: "batch-2026", transitionalCommunes: true },
+  { id: 61, name: "القنطرة", batch: "batch-2026", transitionalCommunes: true },
+  { id: 62, name: "بئر العاتر", batch: "batch-2026", transitionalCommunes: true },
+  { id: 63, name: "العريشة", batch: "batch-2026", transitionalCommunes: true },
+  { id: 64, name: "قصر الشلالة", batch: "batch-2026", transitionalCommunes: true },
+  { id: 65, name: "عين وسارة", batch: "batch-2026", transitionalCommunes: true },
+  { id: 66, name: "مسعد", batch: "batch-2026", transitionalCommunes: true },
+  { id: 67, name: "قصر البخاري", batch: "batch-2026", transitionalCommunes: true },
+  { id: 68, name: "بوسعادة", batch: "batch-2026", transitionalCommunes: true },
+  { id: 69, name: "الأبيض سيدي الشيخ", batch: "batch-2026", transitionalCommunes: true },
+];
+```
+
+- IDs 1–31: original 1974/1983 wilayas.
+- IDs 32–48: 1983 expansion batch.
+- IDs 49–58: 2019 promotion batch (from former daïras / wilayas déléguées).
+- IDs 59–69: **2026 batch (Loi 06-26)** — `transitionalCommunes: true` flags these. Their *wilaya identity* is final and not in question. What may still be unsettled is the **commune-level breakdown** under them, since the law gives the "mother" wilayas until **31 December 2026** to complete administrative hand-over (Art. 54). Treat `transitionalCommunes: true` purely as a signal for the commune-fallback logic in Rule 18 — it never affects whether the wilaya itself appears in the dropdown. It always does.
+
+## B. `COMMUNES_DATA` — the 1,541 communes (NEVER hardcoded here)
+
+Unlike `WILAYAS_69` above, the 1,541-commune layer is **deliberately NOT embedded in this spec.** A list that size cannot be eyeballed for correctness inside a prompt, and that exact blind spot is what produced the 13-wilaya duplicate-block bug. Instead:
+
+1. `COMMUNES_DATA` must be sourced once from an authoritative source (Algérie Poste commune/postal-code list, ONS, or the Ministry of the Interior's official commune registry) and saved as a single verified `communes.json` file — see `/tools/validate-communes.js` below.
+2. That file is validated **before** it ever touches a prompt (Phase 1).
+3. The Prompt Compiler (Phase 3) injects it programmatically per generation. A human never re-types or re-pastes it.
+4. For any wilaya where the verified file has no commune breakdown yet (expected for some `transitionalCommunes: true` wilayas until the Dec 2026 hand-over), that **specific wilaya only** falls back to a free-text commune field, per Rule 18. Every other wilaya keeps its real dropdown.
+
+---
+
 # OUTPUT FORMAT
 
 Single, complete, self-contained `.html` file:
@@ -186,7 +315,7 @@ Single, complete, self-contained `.html` file:
 
 ---
 
-# HARD CONSTRAINTS v8.1 (NEVER VIOLATE — 52 RULES)
+# HARD CONSTRAINTS v9.0 (NEVER VIOLATE — 54 RULES)
 
 ## Core
 1. Single HTML file. No external files. No imports.
@@ -210,15 +339,19 @@ Single, complete, self-contained `.html` file:
 17. **NEVER** promise specific COD amount during confirmation — only post-call.
 
 ## Algerian Specific
-18. `COMMUNES_DATA` (69 wilayas → 1,541 communes) is injected **verbatim** from `[USER_COMMUNES_DATA_JSON]`. The model MUST NOT generate, guess, autocomplete, or "remember" wilaya/commune names from its own training knowledge under ANY circumstance — this data must come only from the literal array provided in the USER INPUT SCHEMA. If `COMMUNES_DATA` is missing or empty, render `wilaya`/`commune` as plain free-text inputs and SKIP the cascade dropdown entirely. Never fabricate a commune list to fill the gap.
-19. Wilaya 59-69 follow Loi 26-06 order.
+18. `COMMUNES_DATA` (69 wilayas → 1,541 communes) is injected **verbatim** from `[USER_COMMUNES_DATA_JSON]`. The model MUST NOT generate, guess, autocomplete, or "remember" commune names from its own training knowledge under ANY circumstance — this data must come only from the literal array provided in the USER INPUT SCHEMA. If `COMMUNES_DATA` is missing or empty, render `wilaya`/`commune` as plain free-text inputs and SKIP the cascade dropdown entirely.
+    - **NEVER fabricate a commune list to fill the gap.**
+    - **NEVER reuse, copy, or near-copy another wilaya's commune array to stand in for a wilaya whose data is missing.** A repeated/near-identical commune block under two or more different wilaya names is a critical failure, not a placeholder — it is indistinguishable from real data to the shopper and silently breaks delivery routing. If a specific wilaya's communes are missing, that ONE wilaya falls back to a free-text commune field while every other wilaya that *does* have real data keeps its dropdown. Partial fallback, not all-or-nothing.
+    - The wilaya *names and numbers themselves* (1–69) are NOT subject to this fallback — they come from the frozen `WILAYAS_69` reference table in this spec (Phase 0, below), not from `COMMUNES_DATA` and not from model memory.
+19. Wilayas 59–69 (created by Loi 26-06, April 2026) MUST use the exact names, numbers, and order in the `WILAYAS_69` reference table below — never re-derive this list from training knowledge, and never reuse an older wilaya's identity for a new one.
+    - **Transitional-data note**: per Loi 26-06, the original "mother" wilayas keep administering the 11 new wilayas' services until municipal hand-over completes (deadline 31 Dec 2026). If a merchant's `COMMUNES_DATA` does not yet break out communes for a given wilaya 59–69 specifically, that wilaya falls back to free-text commune entry (per Rule 18) rather than being silently dropped from the wilaya list or merged into its mother wilaya.
 20. ALL CTA text uses gender-aware Arabic (feminine "اطلبي"/masculine "اطلب"/neutral "اشتري").
 21. Phone validation: `^(05|06|07)[0-9]{8}$` only.
 22. Commune entries NO non-Arabic characters.
 
 ## Layout & UX
 23. Hero section MUST fit 100vh on mobile.
-24. ALL tap targets minimum 44×44px with 8px gap between targets.
+24. ALL tap targets minimum 44×44px with 8px gap between targets — this includes size pills, color swatches, quantity steppers, gallery/lightbox nav arrows, and accordion headers, with NO exception for "compact" or "dense" layout variants. Test against the rendered/computed box, not the content box (padding counts).
 25. Form wizard on mobile (<768px): 3 steps.
 26. Sticky price bar (mobile only) above trust bar.
 27. WhatsApp floating button: 52px circle, above sticky bar on mobile.
@@ -246,6 +379,15 @@ Single, complete, self-contained `.html` file:
 
 ## Tracking Integrity
 52. Pixel base code (`fbq('init', ...)` + `fbq('track','PageView')`, and/or `ttq.load(...)` + `ttq.page()`) MUST be injected in `<head>` whenever the corresponding `PIXEL_ID`/`TIKTOK_PIXEL_ID` is non-empty — see JS section O. A later `fbq?.('track','Lead', ...)` call alone, without this bootstrap, is a silent no-op and is NEVER sufficient on its own. Emit nothing for a pixel whose ID is empty.
+
+## Self-Audit & Code Hygiene (NEW — v9.0)
+53. **Pre-output self-audit (mandatory final pass).** Before returning the HTML, re-scan your own output specifically for the five failure modes found in real-world generations of this spec, in this order:
+    1. Any `wilaya`/`commune` text that did not come verbatim from `COMMUNES_DATA` or the frozen `WILAYAS_69` table — if found, replace with free-text fallback per Rule 18.
+    2. Any interactive control (`button`, `[role=button]`, swatch, pill, stepper, nav arrow) whose computed tap area is below 44×44px — fix the CSS, don't note it as a TODO.
+    3. Confirm the honeypot check (`if (form._hp.value) return`) is the literal first line inside the `submit` handler, before the submit-lock/cooldown check and before `validateStep()`.
+    4. Any emoji character anywhere inside a `<button>`, `<a class="btn...">`, icon slot, or trust ribbon — replace with inline SVG, no exceptions.
+    5. Any CSS selector or `querySelector`/`addEventListener` call referencing a section (gallery, lightbox, video, bonus banner, etc.) that was NOT actually generated in this output — delete it.
+54. **No orphaned section code.** Every section in "PAGE STRUCTURE" is conditional on the inputs that justify it (e.g. Gallery only if product photos are supplied, Video Module only if `VIDEO_DATA` is non-empty). If a conditional section is omitted from the HTML body, its CSS rules, JS selectors, and event listeners MUST also be omitted. A page must never ship styling or scripts for a section a shopper cannot see.
 
 ## Dark Patterns — AVOID
 43. **NO** fake urgency "only 1 left!" unless backed by real inventory data.
@@ -1407,6 +1549,11 @@ fbq('track', 'PageView');
 - 4-line legal/policy summary
 - WhatsApp link only (no other social)
 
+## Section 14 — Video Module (NEW — v9.0, conditional on `VIDEO_DATA`)
+- **Generated only if `VIDEO_DATA` is non-empty** (Rule 54: no orphaned code if empty)
+- `role: "hero"` video replaces/overlays the static hero image; `role: "ugc"` clips render as a horizontal scroll-snap row beneath Section 7 (Customer Photo Reviews) or inside the Gallery
+- Full technical spec: see **PHASE 2 — VIDEO MODULE** below
+
 ---
 
 # SUCCESS MODAL — POST-SUBMIT
@@ -1456,6 +1603,8 @@ fbq('track', 'PageView');
 ---
 
 # TESTING CHECKLIST (v8.0 — ENHANCED)
+
+> Run `/tools/golden-test-suite.js` (Phase 1) first — it automates the tap-target, honeypot-order, emoji, dead-selector, and geo-data checks below. The manual checklist still matters for everything a script can't see (does it *feel* premium, does the wizard transition feel right).
 
 ## Devices (CRITICAL)
 - □ iPhone SE (375×667) — smallest real iPhone
@@ -1508,6 +1657,124 @@ fbq('track', 'PageView');
 
 ---
 
+---
+
+# PHASE 1 — GOLDEN TEST SUITE (NEW — v9.0)
+
+Rules describe intent; they don't enforce it. Every bug the audit found (tap targets, honeypot order, emoji-in-UI, dead code, duplicated geo-data) was a case where the *spec* was already correct but the *output* drifted. Phase 1 closes that gap with checks that run against the generated HTML file itself, not against this prompt.
+
+Ships as `/tools/golden-test-suite.js` in this repo (Node, zero dependencies, single file). Run it on every generated `.html` before it goes live:
+
+```bash
+node tools/golden-test-suite.js path/to/generated-page.html
+```
+
+## What it checks
+
+| Check | How | Catches |
+|---|---|---|
+| **Tap-target size** | Parses every `<button>`, `[role=button]`, `.swatch`, `.pill`, `.qty-btn`, `.lightbox-nav` and any inline `style`/matching CSS rule for `width`/`height`/`min-width`/`min-height`/`padding`; flags anything under 44px on either axis | The 34px `.qty-btn` / 40px `.size-btn` bug |
+| **Honeypot order** | Regex-extracts the `submit` event listener body and asserts the honeypot check (`_hp`) appears textually before the submit-lock/cooldown check | The reordered-honeypot bug |
+| **Emoji-in-UI scanner** | Scans inside every `<button>`, `<a class="btn`, and any element flagged as an icon slot for codepoints in the emoji Unicode ranges | The 🚚💵✅📞🧵📐🎨✨▶ bug |
+| **Dead-DOM-selector detector** | Cross-references every CSS selector and `document.querySelector`/`querySelectorAll` target against the actual HTML body; flags selectors with zero matches | The orphaned Gallery/lightbox bug |
+| **Commune-duplication detector** | Hashes each wilaya's commune array (if `COMMUNES_DATA` is inlined in the output for debugging) and flags any hash shared by 2+ wilayas | The 13-wilaya duplicate-block bug |
+| **Wilaya identity check** | Diffs the page's wilaya dropdown options 1:1 against the frozen `WILAYAS_69` table (Phase 0) | The 11-wilaya fabrication bug |
+
+## Exit behavior
+- Any failed check → non-zero exit code + a human-readable report (`✗ wilaya 61 expected "القنطرة", found "وادي سوف"`-style lines), grouped by severity (**blocker** vs **warning**).
+- Blockers: wilaya identity, commune duplication, honeypot order, tap-target. These should hard-stop a deploy.
+- Warnings: emoji-in-UI, dead selectors. These should be fixed but don't have to block a same-day launch.
+
+This is a pass/fail gate, not a style suggestion — wire it into whatever ships the HTML (a GitHub Action, a pre-deploy npm script, or just a manual run before uploading to Octomatic).
+
+---
+
+# PHASE 2 — VIDEO MODULE (NEW — v9.0)
+
+Activated only when `VIDEO_DATA` is non-empty. Two roles:
+
+## A. Hero video (`role: "hero"`)
+- Replaces the static hero image OR sits as a layered background behind the hero copy (theme-dependent — editorial templates prefer the layered version, bold/urgency templates prefer full-bleed)
+- Optional autoplay + loop, **always muted by default** (browser autoplay policies require this) with a tap-to-unmute control
+- `poster` image required — used as the LQIP/first paint so LCP isn't blocked by video weight
+- `IntersectionObserver` pauses playback when the video leaves the viewport and resumes on re-entry — this is a hard requirement, not an optimization, since DZ traffic is majority-mobile on metered 3G/4G data
+- `prefers-reduced-motion: reduce` → autoplay disabled, shows poster + manual play button instead
+
+## B. UGC vertical clips (`role: "ugc"`)
+- 9:16 TikTok/Reels-style clips, horizontal scroll-snap row (same interaction pattern as the existing Customer Photo Carousel)
+- Tap-to-play, not autoplay (multiple clips in a row autoplaying simultaneously is both a UX and a data-cost problem)
+- Each clip pauses every *other* clip on play (single active player)
+- Same `IntersectionObserver` off-screen pause rule as the hero video
+
+## C. Captions
+- If `caption_track_url` is supplied, render as a native `<track kind="captions" srclang="ar">` (WebVTT). Most COD shoppers browse with sound off in public/work settings — captions are a conversion feature here, not just an accessibility one.
+- If no caption track is supplied, do not fabricate one.
+
+## D. Hosting — why local `./video.mp4` paths are banned (v9.0)
+A path like `./video.mp4` works for exactly one merchant's one page sitting in one folder. The moment this spec is used as a multi-tenant pipeline (Phase 3), every merchant's video needs its own stable, CDN-backed URL that doesn't depend on file-system co-location with the HTML. `VIDEO_DATA[].url` and `.poster` MUST be absolute URLs to externally-hosted media. Acceptable hosts: a CDN/object-storage bucket (Bunny Stream, Cloudflare Stream/R2, Backblaze B2 + CDN, S3 + CloudFront) or, as a low-effort fallback for a single merchant testing this manually, an unlisted YouTube/Vimeo URL embedded via a lightweight `<iframe>` wrapper. Relative/local video paths are a Rule violation, not a style choice.
+
+## E. Performance budget
+- Hero video ≤ 2.5MB at first interaction (compressed H.264/MP4 or AV1, ~6–8s loop)
+- UGC clips lazy-loaded — `preload="none"`, fetched only when scrolled near or tapped
+- Total video weight does not count against the 500KB HTML budget (Rule 4) since it's externally hosted, but each clip should still be optimized for 3G/4G
+
+---
+
+# PHASE 3 — PRODUCTIZATION: PROMPT COMPILER ARCHITECTURE (NEW — v9.0)
+
+The root cause behind the geo-data bugs wasn't really a prompt-writing problem — it was a **process** problem: a human manually re-pasting `COMMUNES_DATA` and brand config into this prompt by hand, every single time, with no validation step in between. That's the same shape of risk as `aiagentfasebook`'s pre-multi-tenant architecture before the `merchant_id` isolation fix. The fix here is structurally identical: stop hand-assembling the prompt, compile it.
+
+## A. Three layers, never mixed
+
+1. **Static spec** (this file, `prompt`) — the rules, design system, animation system, JS, section specs. Changes only when *you* ship a new version (v9.1, v10...). Never templated per-merchant.
+2. **Verified data layer** — `data/wilayas-69.json` (frozen, Phase 0) + `data/communes.json` (sourced once, validated once via `/tools/validate-communes.js`, reused for every merchant/page).
+3. **Per-merchant config** — everything currently marked `[USER_*]` in the USER INPUT SCHEMA: product name, price, brand, pixel IDs, bundle pricing, size/color data, design template choice, video data. Lives as one small JSON file per product/page (e.g. `merchants/secret-femme-robe-hijab.json`).
+
+## B. The compiler
+A small script (`tools/compile-prompt.js` — Node, no dependencies beyond `fs`) that:
+1. Reads the static `prompt` file.
+2. Reads `data/wilayas-69.json` + `data/communes.json` (already validated — see Phase 0/1).
+3. Reads one merchant config JSON.
+4. String-replaces every `[USER_*]` placeholder and the `[USER_COMMUNES_DATA_JSON]` slot with real values — programmatically, never by a human copy-pasting into a chat window.
+5. Outputs a final, ready-to-send prompt (or calls the LLM API directly with it).
+
+This is what actually prevents bug #1/#3 from recurring: the array that gets injected is read from a file that was validated once, not retyped by a human (or worse, "remembered" by an LLM) on every run.
+
+## C. Why this matters for `aiagentfasebook`
+This compiler pattern — static rules + verified shared data + per-tenant config, assembled programmatically — is the same shape your SaaS needs for page generation as a merchant-facing feature, not just your own manual workflow. Building it now as a standalone script means it's a short step to wiring it behind an API endpoint later (merchant fills a form → config JSON → compiler → LLM call → HTML back), rather than retrofitting it after the fact.
+
+---
+
+# DESIGN TEMPLATES — MULTIPLE VISUAL LANGUAGES (NEW — v9.0)
+
+v8.1 had one visual identity (the editorial/Aesop-style system specced above). Not every product or brand mood fits that — a Shein-style impulse dress and a Ramadan abaya drop don't want to look like the same boutique. `DESIGN_TEMPLATE` (set in USER INPUT SCHEMA) selects between four fully-specified directions. The Editorial & Animation systems above (typography, spacing, motion) stay shared infrastructure — what each template overrides is color, density, and a few section-level emphasis choices.
+
+## 1. `editorial-aesop` (DEFAULT — this is the v8.0/8.1 system, unchanged)
+- Calm, magazine-grade, generous whitespace, muted seasonal palettes (see `.theme-*` blocks above)
+- Best for: premium abayas, structured pieces, brand-building first impressions
+- Section density: relaxed — fewer competing CTAs per screen
+
+## 2. `bold-shein-urgency`
+- High-density grid, saturated primary color used aggressively (CTAs, badges, price tags), heavier use of the Inventory Pulse / countdown / "X يشاهدون الآن" social-proof features already in Conversion Engine v8
+- Bundle pricing cards become the visual anchor of the page (moved higher, larger)
+- Best for: impulse-priced items, flash drops, retargeting traffic that already knows the brand
+- Still bound by Rule 43 (no fake urgency without real data) — "bold" is a density/color choice, not a license for dark patterns
+
+## 3. `minimal-glossier`
+- Near-monochrome (off-white/ink only), color appears *only* on the product itself (photos) and one accent micro-moment (e.g. the selected swatch ring)
+- Larger type, fewer simultaneous animations (reveal + blur-up only — skip 3D tilt/magnetic buttons)
+- Best for: skincare-adjacent framing, minimalist modest-wear, audiences sensitive to "salesy" pages
+
+## 4. `heritage-ramadan-eid`
+- Built on the existing `.theme-ramadan` / `.theme-eid` palettes but goes further structurally: lantern/geometric-pattern SVG motifs (inline, not emoji — Rule per Anti-Pattern Checklist) as section dividers instead of plain wave dividers, gold-foil-style CTA treatment
+- Best for: seasonal campaigns specifically, not a year-round default even for Ramadan-adjacent product names
+- Auto-pairs with `SEASON_THEME: "ramadan"` or `"eid"` but can be combined with other season themes for off-season "heritage" framing if explicitly requested
+
+## Implementation note
+`DESIGN_TEMPLATE` adds a `data-template="..."` attribute on `<html>` and a corresponding `.tpl-{name}` class scope; template-specific overrides live as additional CSS custom-property blocks layered on top of the base system (same pattern as `.theme-*`), not a parallel rewrite of the whole stylesheet. This keeps all four templates sharing one animation/JS engine and only diverging on the design tokens.
+
+---
+
 # FINAL NOTES
 
 Build pages that feel **editorially designed**, not template-made. Every section should justify its layout. Every animation should feel intentional, not decorative.
@@ -1518,6 +1785,6 @@ When done well, the page doesn't feel like e-commerce — it feels like a boutiq
 
 ---
 
-# END OF v8.0 SPEC
+# END OF v9.0 SPEC
 
-Use the above as the **complete system prompt** when invoking the LLM. Replace all `[USER_*]` placeholders with actual values before generation. The resulting single HTML file is production-ready.
+Use the above as the **complete system prompt** when invoking the LLM — ideally assembled by the Prompt Compiler (Phase 3), not by hand. Replace all `[USER_*]` placeholders with actual values, inject the verified `WILAYAS_69` + `communes.json` data, run the Golden Test Suite (Phase 1) on the output before shipping. The resulting single HTML file is production-ready only after it passes.
